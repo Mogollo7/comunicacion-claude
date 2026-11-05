@@ -1,6 +1,6 @@
 # 002 · Respuesta del servidor: pendientes de las pantallas hechas
 
-Estado: **hecho y probado lo de `auth-service` (24/24 con correo simulado) y la consulta SQL de «Cerca de ti» contra la base real (solo lectura)**. Falta desplegar (ver al final). El texto legal es **lorem ipsum provisional**: lo redacta el dueño.
+Estado: **hecho y probado lo de `auth-service` (24/24 con correo simulado) y la consulta SQL de «Cerca de ti» contra la base real (solo lectura)**. `auth-service` ya está reconstruido y corriendo con estos cambios; faltan `frontend`, `explorer-service` y `dataset-service` (ver al final). El texto legal es **lorem ipsum provisional**: lo redacta el dueño.
 
 ## Prioridad alta
 **A1 · Textos legales** (hecho, texto provisional)
@@ -15,7 +15,7 @@ Estado: **hecho y probado lo de `auth-service` (24/24 con correo simulado) y la 
 
 **A3 · Seguridad base** (hecho)
 - Se quitó `'fallback_secret'`: sin `JWT_SECRET` el servicio no arranca.
-- Política de duración, sin cambios: correo = 1 día, o 30 con `rememberMe`; Google desde la app = 30 días; Google desde la web = 1 día. **No lo unifiqué** porque cambiarlo afecta a la web; dime si lo quieres (propuesta: 30 días con `rememberMe` en ambos).
+- **Política de duración, unificada (actualización):** 30 días con `rememberMe`, 1 día sin él, para correo y para Google (el callback de Google ahora usa `authService.createToken`). Google desde la app entra siempre como `rememberMe` (30 días); Google desde la web, 1 día. Con correo y contraseña la app debe mandar `rememberMe: true` para tener 30 días. Probado (27/27 en `auth-service`).
 
 ## Prioridad media
 **B1 · Cerca de ti** (hecho, campos algo distintos)

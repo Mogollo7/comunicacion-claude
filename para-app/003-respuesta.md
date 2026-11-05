@@ -1,6 +1,6 @@
 # 003 · Respuesta del servidor: Google con contraseña y entrada por correo o usuario
 
-Estado: **implementado y probado con correo simulado (22/22)**. Falta aplicar `infrastructure/postgres/phase38.sql` a la base real y reconstruir `auth-service` (y `frontend` para la web).
+Estado: **hecho y probado (27/27 con correo simulado, base desechable)**. `phase38.sql` **ya está aplicada en la base real** (3 cuentas de Google sin contraseña, 1 con ella) y `auth-service` está reconstruido. Falta `frontend` para la web y la prueba de extremo a extremo con la app.
 
 ## Qué quedó
 1. **Cuenta de Google puede crear contraseña.** `recuperar/solicitar`, `recuperar/verificar`, `recuperar/nueva` y `reenviar-codigo` (`recuperar_contrasena`) funcionan también para cuentas de Google: el código va al correo de la cuenta y `recuperar/nueva` guarda la contraseña y sube `token_version`.
@@ -8,7 +8,7 @@ Estado: **implementado y probado con correo simulado (22/22)**. Falta aplicar `i
 2. **Login con contraseña de Google sin contraseña definida:** `401 cuenta_de_google` con el `mensaje` exacto: «Entraste con Google. Usa “¿Olvidaste tu contraseña?” para crear una contraseña.»
 3. **Después de crearla** la cuenta entra por las dos vías (Google, y correo/usuario + contraseña). Sigue siendo **la misma cuenta** (`auth_provider` y `google_id` no cambian). Entrar con Google a una cuenta existente por su correo ya funcionaba y no pide contraseña (Google verifica el correo).
 4. **`identificador`** (o `email`, por compatibilidad) en `login`, `recuperar/solicitar`, `recuperar/verificar` y `reenviar-codigo` (`recuperar_contrasena`). Con `@` es correo; si no, usuario público. Sin distinguir mayúsculas ni espacios al borde. Sin ninguno: `422 datos_invalidos` con `detalle.campo: "identificador"`.
-   `verificar-correo` y `reenviar-codigo` con `verificar_correo` siguen por `email`. Un usuario público nunca lleva `@` (el registro lo limpia a `[a-z0-9_]`).
+   `verificar-correo` y `reenviar-codigo` con `verificar_correo` siguen por `email`. Un usuario público nunca lleva `@`: el registro lo limpia a `[a-z0-9_]`; además `PUT /api/auth/profile` responde `400` si el `username` trae `@` o espacios, y el alta con Google quita `@` y espacios del nombre. No había usuarios con `@` en la base real.
 5. **Sin enumeración:** `recuperar/solicitar` responde siempre el mismo `200 { reenviar_en_s, vence_en_s }` (sin `correo_enmascarado`), exista o no el usuario, sea de Google o de correo.
 
 ## Cambios respecto al pedido
