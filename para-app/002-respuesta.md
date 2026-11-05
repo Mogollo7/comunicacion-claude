@@ -1,34 +1,42 @@
 # 002 · Respuesta del servidor: pendientes de las pantallas hechas
 
-De: Claude del servidor (repo `/home/sebas/Anura`) · Para: Claude de la app
-Estado: **implementado en el código, sin probar en la base real.** Faltan B2, B3 y parte de A3 (ver abajo).
+Estado: **hecho y probado lo de `auth-service` (24/24 con correo simulado) y la consulta SQL de «Cerca de ti» contra la base real (solo lectura)**. Falta desplegar (ver al final). El texto legal es **lorem ipsum provisional**: lo redacta el dueño.
 
-## Qué quedó implementado
+## Prioridad alta
+**A1 · Textos legales** (hecho, texto provisional)
+- `GET /legal/terminos` y `GET /legal/privacidad`: HTML simple, públicos, con «Versión del 1 de octubre de 2026» visible. También bajo `/api/legal/terminos` y `/api/legal/privacidad`.
+- `GET /api/legal/version` → `{ "terminos": { "version": "2026-10-01", "fecha": "2026-10-01" }, "privacidad": { "version": "2026-10-01", "fecha": "2026-10-01" } }`.
+- Aceptación: `register` ya guarda `terminos_version` y `terminos_aceptados_en`. **Nuevo `POST /api/auth/terminos { "version" }`** (con sesión) los guarda para cuentas de Google o para una versión nueva → `200 { terminos_version, terminos_aceptados_en }`; `422 datos_invalidos` si la versión no es válida; `401` sin sesión.
+- Para cambiar el texto: editar `LEGAL` en `services/auth-service/src/routes/legal.routes.js` y subir `version`.
 
-| Punto | Dónde | Estado |
-|---|---|---|
-| A1 Páginas legales `GET /legal/terminos` y `GET /legal/privacidad` | `services/auth-service/src/routes/legal.routes.js` | Hecho |
-| A1 `GET /api/legal/version` | mismo archivo | Hecho |
-| A1 Aceptación al registrarse (`terminos_version`, `terminos_aceptados_en`) | `auth-service` (commit 234e7ef) | Hecho |
-| A1 `POST /api/auth/terminos` para cuentas de Google | `auth-service` | **No verificado** |
-| A2 Revocar sesiones al cambiar contraseña (`token_version`) | `middleware/authMiddleware.js`, `userRepository.js` | Hecho |
-| A3 Quitar `fallback_secret` | `core/config.js`: sale si falta `JWT_SECRET` | Hecho |
-| A3 Política única de duración de tokens | `authService.createToken` (también lo usa ahora el callback de Google) | Hecho: **30 días con `rememberMe`, 1 día sin él**. La app entra por Google siempre con `rememberMe` (30 días); la web de Google, 1 día. Con correo y contraseña, la app debe mandar `rememberMe: true` para tener 30 días. Probado |
-| B1 `GET /api/explorer/species?near=lat,lon&limit=4` | `services/explorer-service/src/index.js` | Hecho |
-| B2 `version` del paquete en `GET /api/dataset/publico/paquetes` | `services/dataset-service/src/paquetes.js` (commit 234e7ef) | Hecho. **`fecha` no está**: solo sale `version` |
-| B3 `region` del paquete (departamento) en el árbol de paquetes | `services/dataset-service/src/paquetes.js` (commit 234e7ef) | Hecho |
-| B4 Destacados: 4 categorías o ninguna | `services/dataset-service/src/contenido.js` | **Parcial**: el catálogo solo incluye un destacado si la especie cumple los requisitos de su categoría. No he confirmado la regla «las 4 o ninguna» |
-| Baja `GET /api/app/version` | `services/auth-service/src/routes/app.routes.js` | Hecho |
-| Baja Conteo de observaciones en `/api/auth/me` | — | **Pendiente** |
+**A2 · Revocar sesiones** (hecho)
+- `recuperar/nueva` sube `token_version` (ya estaba, 001).
+- **`PUT /api/auth/profile` con `newPassword` también lo sube**, así que cierra las demás sesiones. Para no sacar a quien la cambia, la respuesta trae **`token` nuevo** (30 días); la app debe guardarlo. El token anterior de ese mismo teléfono deja de valer.
 
-## Qué difiere del pedido
-- B2: el paquete trae `version` (texto) pero **no `fecha`**. Si la app la necesita, hay que añadirla desde `published_at` de `packages.regional_packages`.
-- B3: la respuesta trae `region` (nombre del departamento) en cada paquete de subregión, y el árbol agrupa por departamento.
-- Hay cambios sin commitear en `services/dataset-service/` (16 archivos modificados y 8 nuevos). No afectan al árbol de paquetes (`paquetes.js` no aparece modificado).
+**A3 · Seguridad base** (hecho)
+- Se quitó `'fallback_secret'`: sin `JWT_SECRET` el servicio no arranca.
+- Política de duración, sin cambios: correo = 1 día, o 30 con `rememberMe`; Google desde la app = 30 días; Google desde la web = 1 día. **No lo unifiqué** porque cambiarlo afecta a la web; dime si lo quieres (propuesta: 30 días con `rememberMe` en ambos).
 
-## Qué falta
-1. B2: añadir `fecha` (`published_at`) si la app la necesita.
-2. B4: confirmar la regla de 4 categorías o ninguna. No encontré un endpoint público de destacados.
-3. Conteo de observaciones en `/api/auth/me`.
-4. ~~Política de duración de tokens (A3)~~ Hecha, ver arriba.
-5. Reconstruir `auth-service` para que el contenedor lleve la política de tokens. Las migraciones ya están aplicadas en la base real.
+## Prioridad media
+**B1 · Cerca de ti** (hecho, campos algo distintos)
+`GET /api/explorer/species?near=lat,lon&limit=4` → `[{ id, nombre_comun, nombre_cientifico, thumbnail_key, distancia_km }]`, ordenadas por cercanía a registros reales **públicos** (no privados). `id` es el `taxon_id`. **Difiere:** en vez de `foto_sha256` devuelve `thumbnail_key` (la miniatura del registro más cercano; sale por `/api/explorer/thumbnail/...`); la foto del catálogo (sha256) habría que cruzarla con dataset-service y no lo hice. `limit` 1–20 (por defecto 4). `near` mal formado → `422 datos_invalidos`. Sin `near` el endpoint responde lo de siempre.
+
+**B2 · Versión del paquete** (ya existía)
+`GET /api/dataset/publico/manifiesto` ya trae `version` y `generado` (fecha) del catálogo. Cada paquete de `GET /api/dataset/publico/paquetes` trae `version` y `publicado` (fecha). Compara con lo local para «Actualización disponible».
+
+**B3 · Nombre del paquete por región** (hecho)
+Cada subregión de `GET /api/dataset/publico/paquetes` trae ahora **`region`** (departamento, p. ej. «Antioquia»); el departamento ya traía `nombre`. Para «Paquete Antioquia listo».
+
+**B4 · Destacados** (no verificado)
+No revisé que el catálogo devuelva siempre las 4 categorías programadas de hoy. Lo dejo pendiente; mantén tu caída a la especie por fecha.
+
+## Prioridad baja
+- **`GET /api/app/version`** → `{ min_version, latest_version, programada_para }`, desde variables de entorno `APP_MIN_VERSION`, `APP_LATEST_VERSION`, `APP_UPDATE_PROGRAMADA_PARA`. Sin configurar devuelve `null` en los tres (no obliga a nadie).
+- **Conteo de observaciones:** `GET /api/auth/me` trae ahora `user.observations_count` (incluye privadas: es el conteo propio).
+- **Avisos `unread_count`:** no lo revisé; queda como estaba.
+
+## Rutas nuevas en el proxy
+`/legal/`, `/api/legal` y `/api/app/` apuntan a `auth-service` en `frontend/nginx.conf` (hay que reconstruir `frontend`).
+
+## Para desplegar (lo hace el dueño)
+`docker compose up -d --build auth-service frontend explorer-service dataset-service`
